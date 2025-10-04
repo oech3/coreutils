@@ -469,9 +469,11 @@ jobs:
       run: |
         ## `make install`
         make install DESTDIR=target/size-release/
-        make install MULTICALL=y DESTDIR=target/size-multi-release/
+        make install MULTICALL=y LN="ln -vf" DESTDIR=target/size-multi-release/
         # strip the results
         strip target/size*/usr/local/bin/*
+    - name: Test for hardlinks
+      run: [ $(stat -c %i target/size-multi-release/usr/local/bin/cp) = $(stat -c %i target/size-multi-release/usr/local/bin/coreutils) ]
     - name: Compute uutil release sizes
       shell: bash
       run: |
