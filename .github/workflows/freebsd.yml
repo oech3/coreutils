@@ -201,7 +201,7 @@ jobs:
           fi
           # Test building with make
           # fix libstdbuf test (https://github.com/uutils/coreutils/pull/8684#discussion_r2383492924)
-          export LD_PRELOAD=/home/runner/work LIBSTDBUF_DIR=/home/runner/work
+          export LD_LIBRARY_PATH=/home/runner/work LIBSTDBUF_DIR=/home/runner/work
           if (test -z "\$FAULT"); then make nextest PROFILE=ci LIBSTDBUF_DIR=/home/runner/work || FAULT=1 ; fi
           # Clean to avoid to rsync back the files
           cargo clean
