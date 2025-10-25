@@ -209,7 +209,7 @@ EXTRA_HASHSUM_PROGS ?= \
 	shake128sum \
 	shake256sum
 
-HASHSUM_PROGS := $(EXTRA_HASHSUM_PROGS) := \
+HASHSUM_PROGS := $(EXTRA_HASHSUM_PROGS) \
 	b2sum \
 	md5sum \
 	sha1sum \
