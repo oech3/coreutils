@@ -302,7 +302,7 @@ jobs:
       shell: bash
       run: |
         set -x
-        DESTDIR=/tmp/ make PROFILE=release COMPLETIONS=n MANPAGES=n install
+        DESTDIR=/tmp/ make PROFILE=release COMPLETIONS=n MANPAGES=n LOCALES=n install
         # Check that the utils are present
         test -f /tmp/usr/local/bin/tty
         # Check that the manpage is not present
