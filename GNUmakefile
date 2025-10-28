@@ -22,8 +22,6 @@ ifeq ($(PROFILE),release)
 	PROFILE_CMD = --release
 endif
 
-RM := rm -rf
-
 # Binaries
 CARGO  ?= cargo
 CARGOFLAGS ?=
@@ -502,7 +500,7 @@ endif
 uninstall:
 ifneq ($(OS),Windows_NT)
 	rm -f $(DESTDIR)$(LIBSTDBUF_DIR)/libstdbuf*
-	-rmdir $(DESTDIR)$(LIBSTDBUF_DIR) 2>/dev/null || true
+	-rm -d $(DESTDIR)$(LIBSTDBUF_DIR) 2>/dev/null || true
 endif
 ifeq (${MULTICALL}, y)
 	rm -f $(addprefix $(INSTALLDIR_BIN)/,$(PROG_PREFIX)coreutils)
