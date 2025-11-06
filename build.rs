@@ -79,8 +79,6 @@ pub fn main() {
                 phf_map.entry(krate, format!("({krate}::uumain, {krate}::uu_app_custom)"));
 
                 let map_value = format!("({krate}::uumain, {krate}::uu_app_common)");
-                let map_value_bits = format!("({krate}::uumain, {krate}::uu_app_bits)");
-                let map_value_b3sum = format!("({krate}::uumain, {krate}::uu_app_b3sum)");
                 phf_map.entry("md5sum", map_value.clone());
                 phf_map.entry("sha1sum", map_value.clone());
                 phf_map.entry("sha224sum", map_value.clone());
