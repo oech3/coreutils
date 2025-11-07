@@ -611,6 +611,7 @@ strip = true
 [profile.profiling]
 inherits = "release"
 debug = true
+split-debuginfo = "unpacked"
 
 [lints]
 workspace = true
