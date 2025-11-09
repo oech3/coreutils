@@ -208,15 +208,12 @@ HASHSUM_PROGS := \
 
 $(info Detected OS = $(OS))
 
-# Don't build the SELinux programs on macOS (Darwin) and FreeBSD
-ifeq ($(filter $(OS),Darwin FreeBSD),$(OS))
-	SELINUX_PROGS :=
-endif
-
 ifneq ($(OS),Windows_NT)
 	PROGS := $(PROGS) $(UNIX_PROGS)
-# Build the selinux command even if not on the system
-	PROGS := $(PROGS) $(SELINUX_PROGS)
+endif
+# todo: Do not build coreutils depending on libselinux if SELINUX_ENABLED=0
+ifeq ($(shell command -v selinuxenabled > /dev/null;echo $?),0)
+	PROGS += $(SELINUX_PROGS)
 endif
 
 UTILS ?= $(filter-out $(SKIP_UTILS),$(PROGS))
