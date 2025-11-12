@@ -134,10 +134,10 @@ cd -
 "${MAKE}" MULTICALL=y PROFILE="${UU_MAKE_PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
 # Hardlink binaries
 for binary in $(${UU_BUILD_DIR}/coreutils --list); do
-    (cd ${UU_BUILD_DIR} && ln -v coreutils "$binary")
+    (cd ${UU_BUILD_DIR} && ln -vf coreutils "$binary")
 done
 # The GNU tests rename this script before running, to avoid confusion with the make target
-ln -v "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall"
+ln -vf "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall"
 touch g
 echo "stat with selinux support"
 ./target/debug/stat -c%C g || true
