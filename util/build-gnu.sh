@@ -131,7 +131,10 @@ fi
 cd -
 
 # Pass the feature flags to make, which will pass them to cargo
-"${MAKE}" PROFILE="${UU_MAKE_PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+"${MAKE}" MULTICALL=y PROFILE="${UU_MAKE_PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+for _b in $(./target/${UU_MAKE_PROFILE}/coreutils --list); do
+    ln -svf coreutils ./target/${UU_MAKE_PROFILE}/$_b
+done
 touch g
 echo "stat with selinux support"
 ./target/debug/stat -c%C g || true
