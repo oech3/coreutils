@@ -7,7 +7,7 @@ index 2027555..956c51e 100644
  # along with this program.  If not, see <https://www.gnu.org/licenses/>.
  
 +# We don't have runcon buildable without libselinux.
-+_require_selinux
++_require_selinux_
 +
  . "${srcdir=.}/tests/init.sh"; path_prepend_ ./src
  print_ver_ runcon
