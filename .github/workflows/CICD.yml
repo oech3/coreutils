@@ -831,8 +831,18 @@ jobs:
       shell: bash
       run: |
         ## Package artifact(s)          
-        # coreutils and uudoc
-        cp 'target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }}' '${{ steps.vars.outputs.STAGING }}/${{ steps.vars.outputs.PKG_BASENAME }}/' || :
+        # manpages, completions, and uudoc (if exist)
+        cp 'target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }}' '${{ steps.vars.outputs.STAGING }}/${{ steps.vars.outputs.PKG_BASENAME }}/' && \
+          for binary in coreutils $(target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}${{ steps.vars.outputs.EXE_suffix }} --list);do
+            mkdir -p '${{ steps.vars.outputs.STAGING }}/${{ steps.vars.outputs.PKG_BASENAME }}/share/'{man/man1,bash-completion/completions,fish/vendor_completions.d,zsh/site-functions,elvish/lib,powershell}
+            target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }} manpage $binary > man/man1/${binary}.1
+            target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }} completion $binary bash > bash-completion/completions/${binary}.bash
+            target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }} completion $binary fish > fish/vendor_completions.d/${binary}.fish
+            target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }} completion $binary zsh > zsh/site-functions/_${binary}.bash
+            target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }} completion $binary elvish > elvish/lib/${binary}.elv
+            target/${{ matrix.job.target }}/release/uudoc${{ steps.vars.outputs.EXE_suffix }} completion $binary powershell > powershell/${binary}.ps
+          done 
+        # coreutils  
         cp 'target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}${{ steps.vars.outputs.EXE_suffix }}' '${{ steps.vars.outputs.STAGING }}/${{ steps.vars.outputs.PKG_BASENAME }}/'
         # `strip` binary (if needed)
         [ -n "${{ steps.vars.outputs.STRIP }}" ] && "${{ steps.vars.outputs.STRIP }}" '${{ steps.vars.outputs.STAGING }}/${{ steps.vars.outputs.PKG_BASENAME }}/'*
