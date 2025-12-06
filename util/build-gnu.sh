@@ -98,7 +98,8 @@ cd -
 ln -vf "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall" # The GNU tests use renamed install to ginstall
 if [ "${SELINUX_ENABLED}" = 1 ];then
     # Needs few utils for SELinux tests. Cannot use MULTICALL=y
-    "${MAKE}" UTILS="runcon chcon cat cp id ls mkdir mkfifo mknod touch stat" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+    "${MAKE}" UTILS="basename cat chcon cp echo env id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+    ln -vf "${UU_BUILD_DIR}/test" "${UU_BUILD_DIR}/["
     # min test for SELinux
     touch g && "${PROFILE}"/stat -c%C g && rm g
 else
@@ -286,7 +287,6 @@ test -f "${UU_BUILD_DIR}/getlimits" || cp src/getlimits "${UU_BUILD_DIR}"
 
 # Remove the extra output check
 "${SED}" -i -e "s|Try '\$prog --help' for more information.\\\n||" tests/du/files0-from.pl
-"${SED}" -i -e "s|when reading file names from stdin, no file name of\"|-: No such file or directory\n\"|" -e "s| '-' allowed\\\n||" tests/du/files0-from.pl
 "${SED}" -i -e "s|-: No such file or directory|cannot access '-': No such file or directory|g" tests/du/files0-from.pl
 
 # Skip the move-dir-while-traversing test - our implementation uses safe traversal with openat()
