@@ -97,13 +97,12 @@ cd -
 "${MAKE}" UTILS=install PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
 ln -vf "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall" # The GNU tests use renamed install to ginstall
 if [ "${SELINUX_ENABLED}" = 1 ];then
-    # Needs few utils for SELinux tests. Cannot use MULTICALL=y
-    "${MAKE}" UTILS="basename cat chcon cp echo env id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+    # Needs few utils for SELinux tests. Cannot use MULTICALL=y even it is faster to build...
+    "${MAKE}" UTILS="basename cat chcon cp du echo env id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname whoami" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
     ln -vf "${UU_BUILD_DIR}/test" "${UU_BUILD_DIR}/["
     # min test for SELinux
     touch g && "${PROFILE}"/stat -c%C g && rm g
 else
-    # Use MULTICALL=y for faster build time.
     "${MAKE}" MULTICALL=y SKIP_UTILS="install more" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
     for binary in $("${UU_BUILD_DIR}"/coreutils --list)
         do ln -vf "${UU_BUILD_DIR}/coreutils" "${UU_BUILD_DIR}/${binary}"
@@ -118,7 +117,7 @@ echo "Symlinking binaries that aren't built become `false` so their tests fail"
 for binary in $(./build-aux/gen-lists-of-programs.sh --list-progs); do
     bin_path="${UU_BUILD_DIR}/${binary}"
     test -f "${bin_path}" || {
-        ln -svf /usr/bin/false "${bin_path}"
+        cp -v /usr/bin/false "${bin_path}"
     }
 done
 
@@ -137,6 +136,7 @@ else
     ./bootstrap --skip-po
     # Use CFLAGS for best build time since we discard GNU coreutils
     CFLAGS="${CFLAGS} -pipe -O0 -s" ./configure --quiet --disable-gcc-warnings --disable-nls --disable-dependency-tracking --disable-bold-man-page-references \
+      --enable-single-binary=symlinks \
       "$([ "${SELINUX_ENABLED}" = 1 ] && echo --with-selinux || echo --without-selinux)"
     #Add timeout to to protect against hangs
     "${SED}" -i 's|^"\$@|'"${SYSTEM_TIMEOUT}"' 600 "\$@|' build-aux/test-driver
@@ -170,6 +170,11 @@ fi
 grep -rl 'path_prepend_' tests/* | xargs -r "${SED}" -i 's| path_prepend_ ./src||'
 # path_prepend_ sets $abs_path_dir_: set it manually instead.
 grep -rl '\$abs_path_dir_' tests/*/*.sh | xargs -r "${SED}" -i "s|\$abs_path_dir_|${UU_BUILD_DIR//\//\\/}|g"
+
+# We use coreutils yes
+"${SED}" -i "s|--coreutils-prog=||g" tests/misc/coreutils.sh
+# Different message
+"${SED}" -i "s|coreutils: unknown program 'blah'|blah: function/utility not found|" tests/misc/coreutils.sh
 
 # Remove hfs dependency (should be merged to upstream)
 "${SED}" -i -e "s|hfsplus|ext4 -O casefold|" -e "s|cd mnt|rm -d mnt/lost+found;chattr +F mnt;cd mnt|" tests/mv/hardlink-case.sh
