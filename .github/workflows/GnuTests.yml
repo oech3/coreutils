@@ -267,6 +267,7 @@ jobs:
         lima ls -Z /var/test_selinux/test_file  # Verify context
     - name: Install dependencies in VM
       run: |
+        lima sudo sh -c "echo 'max_parallel_downloads=5' >> /etc/dnf/dnf.conf"
         lima sudo dnf -y update
         lima sudo dnf -y install git autoconf autopoint bison texinfo gperf gcc gdb jq libacl-devel libattr-devel libcap-devel libselinux-devel attr rustup clang-devel texinfo-tex automake patch quilt
         lima rustup-init -y --default-toolchain stable
