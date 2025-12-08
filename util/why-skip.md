@@ -20,18 +20,6 @@
 * tests/mkdir/smack-no-root.sh
 * tests/id/smack.sh
 
-= this system lacks SELinux support =
-* tests/mkdir/selinux.sh
-* tests/mkdir/restorecon.sh
-* tests/misc/selinux.sh
-* tests/misc/chcon.sh
-* tests/install/install-Z-selinux.sh
-* tests/install/install-C-selinux.sh
-* tests/id/no-context.sh
-* tests/id/context.sh
-* tests/cp/no-ctx.sh
-* tests/cp/cp-a-selinux.sh
-
 = timeout returned 142. SIGALRM not handled? =
 * tests/misc/timeout-group.sh
 
