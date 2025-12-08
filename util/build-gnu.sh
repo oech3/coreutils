@@ -97,9 +97,9 @@ cd -
 "${MAKE}" UTILS=install PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
 ln -vf "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall" # The GNU tests use renamed install to ginstall
 if [ "${SELINUX_ENABLED}" = 1 ];then
-    # Needs few utils for SELinux tests. Cannot use MULTICALL=y even it is faster to build...
-    "${MAKE}" UTILS="basename cat chcon cp du echo env id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname whoami" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
-    ln -vf "${UU_BUILD_DIR}/test" "${UU_BUILD_DIR}/["
+    # Building few utils for SELinux tests should save  4 min. But difficult to list the. Also MULTICALL=y fails even it is faster to build...
+    # "${MAKE}" UTILS="basename cat chcon cp du echo env id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname whoami" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+    "${MAKE}" SKIP_UTILS="factor hashsum shuf shred install more" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
     # min test for SELinux
     touch g && "${PROFILE}"/stat -c%C g && rm g
 else
