@@ -94,30 +94,29 @@ else
 fi
 cd -
 
-"${MAKE}" UTILS=install PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
-ln -vf "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall" # The GNU tests use renamed install to ginstall
-if [ "${SELINUX_ENABLED}" = 1 ];then
-    # Build few utils for SELinux for faster build. MULTICALL=y fails...
-    "${MAKE}" MULTICALL=y UTILS="cat chcon cp cut echo env groups id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname wc whoami" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
-    # min test for SELinux
-    touch g && "${PROFILE}"/stat -c%C g && rm g
-else
-    # Use MULTICALL=y for faster build
-    "${MAKE}" MULTICALL=y SKIP_UTILS="install more" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
-fi
-for binary in $("${UU_BUILD_DIR}"/coreutils --list)
-    do ln -vf "${UU_BUILD_DIR}/coreutils" "${UU_BUILD_DIR}/${binary}"
+# Pass the feature flags to make, which will pass them to cargo
+"${MAKE}" PROFILE="${PROFILE}" SKIP_UTILS=more CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+# min test for SELinux
+[ "${SELINUX_ENABLED}" = 1 ] && touch g && "${PROFILE}"/stat -c%C g && rm g
+
+cp "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall" # The GNU tests rename this script before running, to avoid confusion with the make target
+# Create *sum binaries
+for sum in b2sum md5sum sha1sum sha224sum sha256sum sha384sum sha512sum; do
+    sum_path="${UU_BUILD_DIR}/${sum}"
+    test -f "${sum_path}" || (cd ${UU_BUILD_DIR} && ln -s "hashsum" "${sum}")
 done
+test -f "${UU_BUILD_DIR}/[" || (cd ${UU_BUILD_DIR} && ln -s "test" "[")
 
 ##
 
 cd "${path_GNU}" && echo "[ pwd:'${PWD}' ]"
 
-echo "Symlinking binaries that aren't built become `false` so their tests fail"
+# Any binaries that aren't built become `false` so their tests fail
 for binary in $(./build-aux/gen-lists-of-programs.sh --list-progs); do
     bin_path="${UU_BUILD_DIR}/${binary}"
     test -f "${bin_path}" || {
-        cp -v /usr/bin/false "${bin_path}"
+        echo "'${binary}' was not built with uutils, using the 'false' program"
+        cp "${UU_BUILD_DIR}/false" "${bin_path}"
     }
 done
 
@@ -135,12 +134,9 @@ else
     "${SED}" -i '/^wget.*/d' bootstrap.conf # wget is used to DL po. Remove the dep.
     ./bootstrap --skip-po
     # Use CFLAGS for best build time since we discard GNU coreutils
-    CFLAGS="${CFLAGS} -pipe -O0 -s" ./configure -C --quiet --disable-gcc-warnings --disable-nls --disable-dependency-tracking --disable-bold-man-page-references \
+    CFLAGS="${CFLAGS} -pipe -O0 -s" ./configure --quiet --disable-gcc-warnings --disable-nls --disable-dependency-tracking --disable-bold-man-page-references \
       --enable-single-binary=symlinks \
       "$([ "${SELINUX_ENABLED}" = 1 ] && echo --with-selinux || echo --without-selinux)"
-    echo =====
-    cat config.cache
-    echo ===
     #Add timeout to to protect against hangs
     "${SED}" -i 's|^"\$@|'"${SYSTEM_TIMEOUT}"' 600 "\$@|' build-aux/test-driver
     # Use a better diff
@@ -226,10 +222,8 @@ sed -i -e "s|---dis ||g" tests/tail/overlay-headers.sh
 
 # Do not FAIL, just do a regular ERROR
 "${SED}" -i -e "s|framework_failure_ 'no inotify_add_watch';|fail=1;|" tests/tail/inotify-rotate-resources.sh
-echo ===
-"${UU_BUILD_DIR}/getlimits"
-echo ===
-exit 1
+
+test -f "${UU_BUILD_DIR}/getlimits" || cp src/getlimits "${UU_BUILD_DIR}"
 
 # pr produces very long log and this command isn't super interesting
 # SKIP for now
