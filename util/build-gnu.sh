@@ -98,16 +98,16 @@ cd -
 ln -vf "${UU_BUILD_DIR}/install" "${UU_BUILD_DIR}/ginstall" # The GNU tests use renamed install to ginstall
 if [ "${SELINUX_ENABLED}" = 1 ];then
     # Build few utils for SELinux for faster build. MULTICALL=y fails...
-    "${MAKE}" UTILS="cat chcon cp cut echo env groups id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname wc whoami" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
+    "${MAKE}" MULTICALL=y UTILS="cat chcon cp cut echo env groups id ln ls mkdir mkfifo mknod mktemp mv printf rm rmdir runcon stat test touch tr uname wc whoami" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
     # min test for SELinux
     touch g && "${PROFILE}"/stat -c%C g && rm g
 else
     # Use MULTICALL=y for faster build
     "${MAKE}" MULTICALL=y SKIP_UTILS="install more" PROFILE="${PROFILE}" CARGOFLAGS="${CARGO_FEATURE_FLAGS}"
-    for binary in $("${UU_BUILD_DIR}"/coreutils --list)
-        do ln -vf "${UU_BUILD_DIR}/coreutils" "${UU_BUILD_DIR}/${binary}"
-    done
 fi
+for binary in $("${UU_BUILD_DIR}"/coreutils --list)
+    do ln -vf "${UU_BUILD_DIR}/coreutils" "${UU_BUILD_DIR}/${binary}"
+done
 
 ##
 
