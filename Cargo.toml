@@ -590,6 +590,7 @@ required-features = ["uudoc"]
 [profile.release]
 lto = true
 panic = "abort"
+codegen-units = 8 # not 1 because https://github.com/rust-lang/rust/issues/148670
 
 [profile.release-fast]
 inherits = "release"
