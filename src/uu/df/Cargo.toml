@@ -30,3 +30,10 @@ tempfile = { workspace = true }
 [[bin]]
 name = "df"
 path = "src/main.rs"
+
+# https://github.com/uutils/coreutils/pull/8722
+[target.'cfg(not(target_os = "freebsd"))'.dependencies]
+libc = "0.2.178"
+
+[target.'cfg(target_os = "freebsd")'.dependencies]
+libc = "=0.2.175"
