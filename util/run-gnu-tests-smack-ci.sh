@@ -17,23 +17,18 @@ mkdir -p "$SMACK_DIR"/{rootfs/{bin,lib64,proc,sys,dev,tmp,etc,gnu},kernel}
 # Download Arch Linux kernel (has SMACK built-in)
 if [ ! -f /tmp/arch-vmlinuz ]; then
     echo "Downloading Arch Linux kernel..."
-    MIRROR="https://geo.mirror.pkgbuild.com/core/os/x86_64"
-    KERNEL_PKG=$(curl -sL "$MIRROR/" | grep -oP 'linux-[0-9][^"]*-x86_64\.pkg\.tar\.zst' | grep -v headers | sort -V | tail -1)
-    [ -z "$KERNEL_PKG" ] && { echo "Error: Could not find kernel package"; exit 1; }
-    curl -sL -o /tmp/arch-kernel.pkg.tar.zst "$MIRROR/$KERNEL_PKG"
-    zstd -d /tmp/arch-kernel.pkg.tar.zst -o /tmp/arch-kernel.pkg.tar 2>/dev/null || unzstd /tmp/arch-kernel.pkg.tar.zst -o /tmp/arch-kernel.pkg.tar
-    VMLINUZ_PATH=$(tar -tf /tmp/arch-kernel.pkg.tar | grep 'vmlinuz$' | head -1)
-    tar -xf /tmp/arch-kernel.pkg.tar -C /tmp "$VMLINUZ_PATH"
+    curl -sL -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" "https://archlinux.org/packages/core/x86_64/linux/download/" -o /tmp/arch-kernel.pkg.tar.zst
+    VMLINUZ_PATH=$(tar --zstd -tf /tmp/arch-kernel.pkg.tar.zst | grep 'vmlinuz$' | head -1)
+    tar --zstd -xf /tmp/arch-kernel.pkg.tar.zst -C /tmp "$VMLINUZ_PATH"
     mv "/tmp/$VMLINUZ_PATH" /tmp/arch-vmlinuz
-    rm -rf /tmp/usr /tmp/arch-kernel.pkg.tar /tmp/arch-kernel.pkg.tar.zst
+    rm -rf /tmp/usr /tmp/arch-kernel.pkg.tar.zst &
 fi
 cp /tmp/arch-vmlinuz "$SMACK_DIR/kernel/vmlinuz"
 
 # Setup busybox
 BUSYBOX=/tmp/busybox
 [ -f "$BUSYBOX" ] || curl -sL -o "$BUSYBOX" https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
-chmod +x "$BUSYBOX"
-cp "$BUSYBOX" "$SMACK_DIR/rootfs/bin/"
+install -Dm755 "$BUSYBOX" "$SMACK_DIR/rootfs/bin/busybox"
 (cd "$SMACK_DIR/rootfs/bin" && "$BUSYBOX" --list | xargs -I{} ln -sf busybox {} 2>/dev/null)
 
 # Copy required libraries
