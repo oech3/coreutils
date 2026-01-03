@@ -22,6 +22,7 @@ clap = { workspace = true }
 uucore = { workspace = true, features = ["parser"] }
 nix = { workspace = true, features = ["term", "ioctl"] }
 fluent = { workspace = true }
+libc = "0.2.179" # Avoid stty panic on glibc 2.42
 
 [[bin]]
 name = "stty"
