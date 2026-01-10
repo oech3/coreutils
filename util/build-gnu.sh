@@ -98,7 +98,7 @@ else
     # Use MULTICALL=y for faster build
     "${MAKE}" MULTICALL=y SKIP_UTILS="install more seq"
     for binary in $("${UU_BUILD_DIR}"/coreutils --list)
-        do ln -vf "${UU_BUILD_DIR}/coreutils" "${UU_BUILD_DIR}/${binary}"
+        do ln -f "${UU_BUILD_DIR}/coreutils" "${UU_BUILD_DIR}/${binary}"
     done
 fi
 
@@ -127,7 +127,7 @@ else
     # Stop manpage generation for cleaner log
     : > man/local.mk
     # Use CFLAGS for best build time since we discard GNU coreutils
-    CFLAGS="${CFLAGS} -pipe -O0 -s" ./configure -C --quiet --disable-gcc-warnings --disable-nls --disable-dependency-tracking --disable-bold-man-page-references \
+    CFLAGS="${CFLAGS} -pipe -O0 -s" ./configure -C --quiet --disable-gcc-warnings --disable-nls --disable-bold-man-page-references \
       --enable-single-binary=symlinks --enable-install-program="arch,kill,uptime,hostname" \
       "$([ "${SELINUX_ENABLED}" = 1 ] && echo --with-selinux || echo --without-selinux)"
     #Add timeout to to protect against hangs
@@ -139,7 +139,7 @@ else
     # Use GNU nproc for *BSD and macOS
     NPROC="$(command -v nproc||command -v gnproc)"
     test "${SELINUX_ENABLED}" = 1 && touch src/getlimits # SELinux tests does not use it
-    test -f src/getlimits || "${MAKE}" -j "$("${NPROC}")"
+    test -f src/getlimits || "${MAKE}" -j "$("${NPROC}")" lib/uninorm.h lib/unicase.h lib/uniwidth.h lib/unictype.h lib/unitypes.h lib/unistr.h lib/stdckdint.h lib/stdcountof.h lib/configmake.h lib/config.h src/version.h lib/unistd.h lib/fcntl.h lib/sys/stat.h lib/wchar.h lib/wctype.h lib/uchar.h lib/malloc/scratch_buffer.gl.h lib/stdlib.h lib/dirent.h lib/time.h lib/string.h lib/stdio.h lib/fts_.h lib/locale.h lib/langinfo.h lib/obstack.h lib/selinux/selinux.h lib/selinux/context.h lib/selinux/label.h src/getlimits # spell-checker:disable-line
     cp -f src/getlimits "${UU_BUILD_DIR}"
 
     # Handle generated factor tests
