@@ -9,6 +9,7 @@ use clap::{Arg, ArgAction, Command};
 use libc::PRIO_PROCESS;
 use std::ffi::OsString;
 use std::io::{Error, ErrorKind, Write};
+use std::num::IntErrorKind;
 use std::os::unix::process::CommandExt;
 use std::process;
 
@@ -115,6 +116,7 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
             format!("getpriority: {}", Error::last_os_error()),
         ));
     }
+    let nice_bound = 50;
 
     let adjustment = match matches.get_one::<String>(options::ADJUSTMENT) {
         Some(nstr) => {
@@ -126,12 +128,16 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
             }
             match nstr.parse::<i32>() {
                 Ok(num) => num,
-                Err(e) => {
-                    return Err(USimpleError::new(
-                        125,
-                        translate!("nice-error-invalid-number", "value" => nstr.clone(), "error" => e),
-                    ));
-                }
+                Err(e) => match e.kind() {
+                    IntErrorKind::PosOverflow => nice_bound,
+                    IntErrorKind::NegOverflow => -nice_bound,
+                    _ => {
+                        return Err(USimpleError::new(
+                            125,
+                            translate!("nice-error-invalid-number", "value" => nstr.clone(), "error" => e),
+                        ));
+                    }
+                },
             }
         }
         None => {
