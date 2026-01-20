@@ -758,7 +758,9 @@ jobs:
     - name: Package individual binaries
       if: matrix.job.individual != ''
       run: |
-        mkdir -p individual && mv $(target/${{ matrix.job.target }}/release/coreutils --list) -t individual ||:
+        mkdir -p individual
+        (cd target/${{ matrix.job.target }}/release && mv $(./coreutils --list) -t ../../../individual ||:)
+        individual/true --version
         ZSTD_CLEVEL=19 tar --zstd -caf individual-${{ matrix.job.target }}.tar.zst individual
     - name: Package manpages and completions
       if: matrix.job.target == 'x86_64-unknown-linux-gnu' && matrix.job.features == 'feat_os_unix,uudoc'
