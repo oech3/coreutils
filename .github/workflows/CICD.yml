@@ -701,9 +701,12 @@ jobs:
         outputs TARGET_ARCH TARGET_OS
         # package name
         PKG_suffix=".tar.gz" ; case '${{ matrix.job.target }}' in *-pc-windows-*) PKG_suffix=".zip" ;; esac;
+        # Some 3rd party utils need version at file names
         PKG_BASENAME=${PROJECT_NAME}-${REF_TAG:-$REF_SHAS}-${{ matrix.job.target }}
         PKG_NAME=${PKG_BASENAME}${PKG_suffix}
         outputs PKG_suffix PKG_BASENAME PKG_NAME
+        # But we remove it from tag/latest-commit
+        PKG_NAME_LATEST=${PROJECT_NAME}-${{ matrix.job.target }}${PKG_suffix}
         # deployable tag? (ie, leading "vM" or "M"; M == version number)
         unset DEPLOY ; if [[ $REF_TAG =~ ^[vV]?[0-9].* ]]; then DEPLOY='true' ; fi
         outputs DEPLOY
@@ -873,8 +876,14 @@ jobs:
         # core compressed package
         pushd '${{ steps.vars.outputs.STAGING }}/' >/dev/null
         case '${{ matrix.job.target }}' in
-          *-pc-windows-*) 7z -y a '${{ steps.vars.outputs.PKG_NAME }}' '${{ steps.vars.outputs.PKG_BASENAME }}'/* | tail -2 ;;
-          *) tar czf '${{ steps.vars.outputs.PKG_NAME }}' '${{ steps.vars.outputs.PKG_BASENAME }}'/* ;;
+          *-pc-windows-*)
+            7z -y a '${{ steps.vars.outputs.PKG_NAME }}' '${{ steps.vars.outputs.PKG_BASENAME }}'/* | tail -2
+            ln '${{ steps.vars.outputs.PKG_NAME }}' '${{ steps.vars.outputs.PKG_NAME_LATEST }}'
+          ;;
+          *)
+            tar czf '${{ steps.vars.outputs.PKG_NAME }}' '${{ steps.vars.outputs.PKG_BASENAME }}'/*
+            ln '${{ steps.vars.outputs.PKG_NAME }}' '${{ steps.vars.outputs.PKG_NAME_LATEST }}'
+          ;;
         esac
         popd >/dev/null
     - name: Package manpages and completions
@@ -903,14 +912,13 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Publish latest commit
       uses: softprops/action-gh-release@v2
-      if: steps.vars.outputs.DEPLOY && matrix.job.skip-publish != true
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.job.skip-publish != true
       with:
         tag_name: latest-commit
-        force_update: true
         draft: false
         prerelease: true
         files: |
-          ${{ steps.vars.outputs.STAGING }}/${{ steps.vars.outputs.PKG_NAME }}
+          ${{ steps.vars.outputs.STAGING }}/${{ steps.vars.outputs.PKG_NAME_LATEST }}
           docs.tar.zst
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
