@@ -5,9 +5,10 @@
 
 // spell-checker:ignore (ToDOs) corasick memchr Roff trunc oset iset CHARCLASS
 
+use rustc_hash::FxHashSet as HashSet;
 use std::cmp;
 use std::cmp::PartialEq;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 use std::ffi::{OsStr, OsString};
 use std::fmt::Write as FmtWrite;
 use std::fs::File;
@@ -78,7 +79,7 @@ fn read_word_filter_file(
         let file = File::open(Path::new(filename))?;
         Box::new(file)
     });
-    let mut words: HashSet<String> = HashSet::new();
+    let mut words: HashSet<String> = HashSet::default();
     for word in reader.lines() {
         words.insert(word?);
     }
@@ -121,14 +122,14 @@ impl WordFilter {
                 read_word_filter_file(matches, options::ONLY_FILE).map_err_context(String::new)?;
             (true, words)
         } else {
-            (false, HashSet::new())
+            (false, HashSet::default())
         };
         let (i, iset): (bool, HashSet<String>) = if matches.contains_id(options::IGNORE_FILE) {
             let words = read_word_filter_file(matches, options::IGNORE_FILE)
                 .map_err_context(String::new)?;
             (true, words)
         } else {
-            (false, HashSet::new())
+            (false, HashSet::default())
         };
         let break_set: Option<HashSet<char>> = if matches.contains_id(options::BREAK_FILE)
             && !matches.contains_id(options::WORD_REGEXP)
