@@ -3,6 +3,8 @@
 // For the full copyright and license information, please view the LICENSE
 // file that was distributed with this source code.
 
+// spell-checker:ignore getauxval EXECFN
+
 use clap::Command;
 use coreutils::validation;
 use itertools::Itertools as _;
@@ -45,8 +47,24 @@ fn main() {
     let utils = util_map();
     let mut args = uucore::args_os();
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    // protect against env -a
+    let binary = {
+        use std::ffi::{CStr, OsString};
+        use std::os::unix::ffi::OsStringExt;
+        let p: *const libc::c_char = unsafe { libc::getauxval(libc::AT_EXECFN) as _ };
+        if p.is_null() {
+            let _ = writeln!(io::stderr(), "getauxval failed");
+            process::exit(1);
+        }
+        let _ = args.next();
+        let n = unsafe { CStr::from_ptr(p) };
+        OsString::from_vec(n.to_bytes().to_vec())
+    };
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     let binary = validation::binary_path(&mut args);
-    let binary_as_util = validation::name(&binary).unwrap_or_else(|| {
+
+    let binary_as_util = validation::name(binary.as_ref()).unwrap_or_else(|| {
         usage(&utils, "<unknown binary name>");
         process::exit(0);
     });
@@ -55,8 +73,12 @@ fn main() {
     let is_coreutils = binary_as_util.ends_with("utils");
     let matched_util = utils
         .keys()
+        //*utils is not ls
         .filter(|&&u| binary_as_util.ends_with(u) && !is_coreutils)
-        .max_by_key(|u| u.len()); //Prefer stty more than tty. *utils is not ls
+        //Prefer stty more than tty
+        .max_by_key(|u| u.len())
+        // todo: with coreutils -> ls -> blah symlink chain, blah calls ls
+        ;
 
     let util_name = if let Some(&util) = matched_util {
         Some(OsString::from(util))

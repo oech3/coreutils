@@ -722,7 +722,11 @@ fn test_env_with_empty_executable_double_quotes() {
 }
 
 #[test]
-#[cfg(all(unix, feature = "dirname", feature = "echo"))]
+#[cfg(all(
+    all(unix, feature = "dirname", feature = "echo"),
+    not(any(target_os = "linux", target_os = "android"))
+))]
+// protected against hijack at Linux
 fn test_env_overwrite_arg0() {
     let ts = TestScenario::new(util_name!());
 
@@ -746,7 +750,11 @@ fn test_env_overwrite_arg0() {
 }
 
 #[test]
-#[cfg(all(unix, feature = "echo"))]
+#[cfg(all(
+    all(unix, feature = "echo"),
+    not(any(target_os = "linux", target_os = "android"))
+))]
+// protected against hijack at Linux
 fn test_env_arg_argv0_overwrite() {
     let ts = TestScenario::new(util_name!());
 
@@ -794,7 +802,11 @@ fn test_env_arg_argv0_overwrite() {
 }
 
 #[test]
-#[cfg(all(unix, feature = "echo"))]
+#[cfg(all(
+    all(unix, feature = "echo"),
+    not(any(target_os = "linux", target_os = "android"))
+))]
+// protected against hijack at Linux
 fn test_env_arg_argv0_overwrite_mixed_with_string_args() {
     let ts = TestScenario::new(util_name!());
 
