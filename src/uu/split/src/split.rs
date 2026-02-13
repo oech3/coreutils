@@ -1477,7 +1477,7 @@ where
     // to be overwritten for sure at the beginning of the loop below
     // because we start with `remaining == 0`, indicating that a new
     // chunk should start.
-    let mut writer: BufWriter<Box<dyn Write>> = BufWriter::new(Box::new(io::Cursor::new(vec![])));
+    let mut writer: BufWriter<Box<dyn Write>> = BufWriter::with_capacity(256 * 1024, Box::new(io::Cursor::new(vec![])));
 
     let mut remaining = 0;
     for line in lines_with_sep(reader, settings.separator) {
