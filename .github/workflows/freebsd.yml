@@ -182,7 +182,6 @@ jobs:
           unset FAULT
           export CARGO_INCREMENTAL=0
           export RUSTFLAGS="-C strip=symbols" # for disk space
-          cargo build || FAULT=1
           export PATH=~/.cargo/bin:${PATH}
           export RUST_BACKTRACE=1
           export CARGO_TERM_COLOR=always
