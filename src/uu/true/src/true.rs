@@ -3,7 +3,7 @@
 // For the full copyright and license information, please view the LICENSE
 // file that was distributed with this source code.
 use clap::{Arg, ArgAction, Command};
-use std::{ffi::OsString, io::Write};
+use std::io::Write;
 use uucore::error::{UResult, set_exit_code};
 
 use uucore::translate;
@@ -11,16 +11,19 @@ use uucore::translate;
 #[uucore::main]
 // TODO: modify proc macro to allow no-result uumain
 #[expect(clippy::unnecessary_wraps, reason = "proc macro requires UResult")]
-pub fn uumain(args: impl uucore::Args) -> UResult<()> {
-    let args: Vec<OsString> = args.collect();
-    if args.len() != 2 {
+pub fn uumain(mut args: impl uucore::Args) -> UResult<()> {
+    let _ = args.next();
+    let flag = match args.next() {
+        Some(f) => f,
+        None => return Ok(()),
+    };
+    if args.next().is_some() {
         return Ok(());
     }
 
-    // args[0] is the name of the binary.
-    let error = if args[1] == "--help" {
+    let error = if flag == "--help" {
         uu_app().print_help()
-    } else if args[1] == "--version" {
+    } else if flag == "--version" {
         write!(std::io::stdout(), "{}", uu_app().render_version())
     } else {
         Ok(())
