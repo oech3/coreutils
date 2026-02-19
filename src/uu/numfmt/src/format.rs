@@ -3,6 +3,8 @@
 // For the full copyright and license information, please view the LICENSE
 // file that was distributed with this source code.
 // spell-checker:ignore powf
+const ALLOC_SPARE: usize = 32;
+
 use uucore::display::Quotable;
 use uucore::translate;
 
@@ -469,7 +471,7 @@ fn split_bytes<'a>(input: &'a [u8], delim: &'a [u8]) -> impl Iterator<Item = &'a
 
 pub fn format_and_print_delimited(input: &[u8], options: &NumfmtOptions) -> Result<()> {
     let delimiter = options.delimiter.as_ref().unwrap();
-    let mut output: Vec<u8> = Vec::new();
+    let mut output: Vec<u8> = Vec::with_capacity(input.len() + ALLOC_SPARE);
     let eol = if options.zero_terminated {
         b'\0'
     } else {
@@ -503,7 +505,7 @@ pub fn format_and_print_delimited(input: &[u8], options: &NumfmtOptions) -> Resu
     Ok(())
 }
 pub fn format_and_print_whitespace(s: &str, options: &NumfmtOptions) -> Result<()> {
-    let mut output = String::new();
+    let mut output = String::with_capacity(s.len() + ALLOC_SPARE);
 
     for (n, (prefix, field)) in (1..).zip(WhitespaceSplitter { s: Some(s) }) {
         let field_selected = uucore::ranges::contain(&options.fields, n);
