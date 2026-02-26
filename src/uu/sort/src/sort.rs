@@ -26,7 +26,6 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use custom_str_cmp::custom_str_cmp;
 use ext_sort::ext_sort;
 use numeric_str_cmp::{NumInfo, NumInfoParseSettings, human_numeric_str_cmp, numeric_str_cmp};
-use rand::{Rng, rng};
 use rayon::prelude::*;
 use std::cmp::Ordering;
 use std::env;
@@ -2903,7 +2902,8 @@ fn general_numeric_compare(
 
 /// Generate a 128-bit salt from a uniform RNG distribution.
 fn get_rand_string() -> [u8; SALT_LEN] {
-    rng().sample(rand::distr::StandardUniform)
+    use nanorand::Rng;
+    nanorand::WyRand::new().generate::<u128>().to_ne_bytes()
 }
 
 const SALT_LEN: usize = 16; // 128-bit salt
