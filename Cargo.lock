@@ -1226,11 +1226,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi",
  "wasip2",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -1926,15 +1924,6 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "nanorand"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e3d189da485332e96ba8a5ef646a311871abd7915bf06ac848a9117f19cf6e4"
-dependencies = [
- "getrandom 0.3.4",
 ]
 
 [[package]]
@@ -4061,10 +4050,10 @@ dependencies = [
  "codspeed-divan-compat",
  "compare",
  "ctrlc",
+ "fastrand",
  "fluent",
  "itertools 0.14.0",
  "memchr",
- "nanorand",
  "nix",
  "rayon",
  "self_cell",

@@ -2902,8 +2902,7 @@ fn general_numeric_compare(
 
 /// Generate a 128-bit salt from a uniform RNG distribution.
 fn get_rand_string() -> [u8; SALT_LEN] {
-    use nanorand::Rng;
-    nanorand::WyRand::new().generate::<u128>().to_ne_bytes()
+    fastrand::u128(..).to_ne_bytes()
 }
 
 const SALT_LEN: usize = 16; // 128-bit salt
