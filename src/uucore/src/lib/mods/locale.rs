@@ -109,7 +109,6 @@ impl Localizer {
 }
 
 // Global localizer stored in thread-local OnceLock
-static LOCALIZER_REUSE_HINT: AtomicBool = AtomicBool::new(false);
 thread_local! {
     static LOCALIZER_REUSE: Cell<bool> = const { Cell::new(false) };
     static LOCALIZER: OnceLock<Localizer> = const { OnceLock::new() };
@@ -412,7 +411,7 @@ fn detect_system_locale() -> Result<LanguageIdentifier, LocalizationError> {
 /// ```
 pub fn setup_localization(p: &str) -> Result<(), LocalizationError> {
     // bypass heavy localization
-    if LOCALIZER_REUSE_HINT.load(Ordering::Relaxed) && LOCALIZER_REUSE.with(Cell::get) {
+    if LOCALIZER_REUSE.with(Cell::get) {
         return Ok(());
     }
 
@@ -437,7 +436,6 @@ pub fn setup_localization(p: &str) -> Result<(), LocalizationError> {
         })?;
     }
     LOCALIZER_REUSE.with(|f| f.set(true));
-    LOCALIZER_REUSE_HINT.store(true, Ordering::Relaxed);
     Ok(())
 }
 
