@@ -9,10 +9,12 @@ use crate::error::UError;
 use fluent::{FluentArgs, FluentBundle, FluentResource};
 use fluent_syntax::parser::ParserError;
 
+use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use os_display::Quotable;
 use thiserror::Error;
@@ -107,7 +109,9 @@ impl Localizer {
 }
 
 // Global localizer stored in thread-local OnceLock
+static LOCALIZER_REUSE_HINT: AtomicBool = AtomicBool::new(false);
 thread_local! {
+    static LOCALIZER_REUSE: Cell<bool> = const { Cell::new(false) };
     static LOCALIZER: OnceLock<Localizer> = const { OnceLock::new() };
 }
 
@@ -407,6 +411,11 @@ fn detect_system_locale() -> Result<LanguageIdentifier, LocalizationError> {
 /// }
 /// ```
 pub fn setup_localization(p: &str) -> Result<(), LocalizationError> {
+    // bypass heavy localization
+    if LOCALIZER_REUSE_HINT.load(Ordering::Relaxed) && LOCALIZER_REUSE.with(Cell::get) {
+        return Ok(());
+    }
+
     let locale = detect_system_locale().unwrap_or_else(|_| {
         LanguageIdentifier::from_str(DEFAULT_LOCALE).expect("Default locale should always be valid")
     });
@@ -414,7 +423,7 @@ pub fn setup_localization(p: &str) -> Result<(), LocalizationError> {
     // Load common strings along with utility-specific strings
     if let Ok(locales_dir) = get_locales_dir(p) {
         // Load both utility-specific and common strings
-        init_localization(&locale, &locales_dir, p)
+        init_localization(&locale, &locales_dir, p)?;
     } else {
         // No locales directory found, use embedded English with common strings directly
         let default_locale = LanguageIdentifier::from_str(DEFAULT_LOCALE)
@@ -426,8 +435,10 @@ pub fn setup_localization(p: &str) -> Result<(), LocalizationError> {
             lock.set(localizer)
                 .map_err(|_| LocalizationError::Bundle("Localizer already initialized".into()))
         })?;
-        Ok(())
     }
+    LOCALIZER_REUSE.with(|f| f.set(true));
+    LOCALIZER_REUSE_HINT.store(true, Ordering::Relaxed);
+    Ok(())
 }
 
 #[cfg(not(debug_assertions))]
