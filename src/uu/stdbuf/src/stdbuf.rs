@@ -183,13 +183,15 @@ fn get_preload_env(_tmp_dir: &TempDir) -> UResult<(String, PathBuf)> {
     // Search paths in order:
     // 1. Directory where stdbuf is located (program_path)
     // 2. Compile-time directory from LIBSTDBUF_DIR
-    let mut search_paths: Vec<PathBuf> = Vec::new();
+    let mut search_paths: Vec<PathBuf> = Vec::with_capacity(2);
 
     // First, try to get the directory where stdbuf is running from
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            search_paths.push(exe_dir.to_path_buf());
-        }
+    // use argv[0] to support masked /proc
+    if let Some(exe_dir) = std::env::args_os()
+        .next()
+        .and_then(|a| PathBuf::from(a).parent().map(std::path::Path::to_path_buf))
+    {
+        search_paths.push(exe_dir);
     }
 
     // Add the compile-time directory as fallback
