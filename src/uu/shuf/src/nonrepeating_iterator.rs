@@ -49,13 +49,23 @@ enum Values {
 }
 
 impl<'a> NonrepeatingIterator<'a> {
-    pub(crate) fn new(range: RangeInclusive<u64>, rng: &'a mut WrappedRng) -> Self {
-        const MAX_CAPACITY: usize = 128; // todo: optimize this
-        let capacity = (range.size_hint().0).min(MAX_CAPACITY);
-        let values = Values::Sparse(
-            range,
-            FxHashMap::with_capacity_and_hasher(capacity, rustc_hash::FxBuildHasher),
-        );
+    pub(crate) fn new(
+        range: RangeInclusive<u64>,
+        rng: &'a mut WrappedRng,
+        head_count: Option<usize>,
+    ) -> Self {
+        const MAX_VEC_CAPACITY: usize = 131_072;
+        let range_len = range.size_hint().0;
+        let capacity = head_count.unwrap_or(0).min(range_len);
+        let values = if range_len > MAX_VEC_CAPACITY {
+            Values::Sparse(
+                range,
+                FxHashMap::with_capacity_and_hasher(capacity, rustc_hash::FxBuildHasher),
+            )
+        } else {
+            let items: Vec<u64> = range.rev().collect();
+            Values::Full(items)
+        };
         NonrepeatingIterator { rng, values }
     }
 
