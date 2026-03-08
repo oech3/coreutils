@@ -9,11 +9,13 @@ use crate::error::UError;
 use fluent::{FluentArgs, FluentBundle, FluentResource};
 use fluent_syntax::parser::ParserError;
 
-use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::OnceLock;
+use std::sync::{
+    Arc, OnceLock,
+    atomic::{AtomicBool, Ordering},
+};
 
 use os_display::Quotable;
 use thiserror::Error;
@@ -65,19 +67,19 @@ include!(concat!(env!("OUT_DIR"), "/embedded_locales.rs"));
 
 // A struct to handle localization with optional English fallback
 struct Localizer {
-    primary_bundle: FluentBundle<FluentResource>,
-    fallback_bundle: Option<FluentBundle<FluentResource>>,
+    primary_bundle: FluentBundle<Arc<FluentResource>>,
+    fallback_bundle: Option<FluentBundle<Arc<FluentResource>>>,
 }
 
 impl Localizer {
-    fn new(primary_bundle: FluentBundle<FluentResource>) -> Self {
+    fn new(primary_bundle: FluentBundle<Arc<FluentResource>>) -> Self {
         Self {
             primary_bundle,
             fallback_bundle: None,
         }
     }
 
-    fn with_fallback(mut self, fallback_bundle: FluentBundle<FluentResource>) -> Self {
+    fn with_fallback(mut self, fallback_bundle: FluentBundle<Arc<FluentResource>>) -> Self {
         self.fallback_bundle = Some(fallback_bundle);
         self
     }
@@ -136,8 +138,8 @@ fn create_bundle(
     locale: &LanguageIdentifier,
     locales_dir: &Path,
     util_name: &str,
-) -> Result<FluentBundle<FluentResource>, LocalizationError> {
-    let mut bundle = FluentBundle::new(vec![locale.clone()]);
+) -> Result<FluentBundle<Arc<FluentResource>>, LocalizationError> {
+    let mut bundle: FluentBundle<Arc<FluentResource>> = FluentBundle::new(vec![locale.clone()]);
 
     // Disable Unicode directional isolate characters
     bundle.set_use_isolating(false);
@@ -148,7 +150,7 @@ fn create_bundle(
             .and_then(|locale_path| fs::read_to_string(locale_path).ok())
             .and_then(|ftl| FluentResource::try_new(ftl).ok())
         {
-            bundle.add_resource_overriding(resource);
+            bundle.add_resource_overriding(Arc::new(resource));
         }
     };
 
@@ -245,7 +247,7 @@ fn parse_fluent_resource(content: &str) -> Result<FluentResource, LocalizationEr
 fn create_english_bundle_from_embedded(
     locale: &LanguageIdentifier,
     util_name: &str,
-) -> Result<FluentBundle<FluentResource>, LocalizationError> {
+) -> Result<FluentBundle<Arc<FluentResource>>, LocalizationError> {
     // Only support English from embedded files
     if *locale != "en-US" {
         return Err(LocalizationError::LocalesDirNotFound(
@@ -259,14 +261,14 @@ fn create_english_bundle_from_embedded(
     // First, try to load common uucore strings
     if let Some(uucore_content) = get_embedded_locale("uucore/en-US.ftl") {
         let uucore_resource = parse_fluent_resource(uucore_content)?;
-        bundle.add_resource_overriding(uucore_resource);
+        bundle.add_resource_overriding(Arc::new(uucore_resource));
     }
 
     // Checksum algorithms need locale messages from checksum_common
     if util_name.ends_with("sum") {
         if let Some(uucore_content) = get_embedded_locale("checksum_common/en-US.ftl") {
             let uucore_resource = parse_fluent_resource(uucore_content)?;
-            bundle.add_resource_overriding(uucore_resource);
+            bundle.add_resource_overriding(Arc::new(uucore_resource));
         }
     }
 
@@ -274,7 +276,7 @@ fn create_english_bundle_from_embedded(
     let locale_key = format!("{util_name}/en-US.ftl");
     if let Some(ftl_content) = get_embedded_locale(&locale_key) {
         let resource = parse_fluent_resource(ftl_content)?;
-        bundle.add_resource_overriding(resource);
+        bundle.add_resource_overriding(resource.into());
     }
 
     // Return the bundle if we have either common strings or utility-specific strings
@@ -408,11 +410,9 @@ fn detect_system_locale() -> Result<LanguageIdentifier, LocalizationError> {
 /// }
 /// ```
 pub fn setup_localization(p: &str) -> Result<(), LocalizationError> {
-    // Avoid duplicated and high-cost localizer setup
-    thread_local! {
-        static LOCALIZER_IS_SET: Cell<bool> = const { Cell::new(false) };
-    }
-    if LOCALIZER_IS_SET.with(Cell::get) {
+    // Share parsed fluent between threads
+    static FLUENT_IS_PARSED: AtomicBool = AtomicBool::new(false);
+    if FLUENT_IS_PARSED.load(Ordering::Acquire) {
         return Ok(());
     }
 
@@ -436,7 +436,7 @@ pub fn setup_localization(p: &str) -> Result<(), LocalizationError> {
                 .map_err(|_| LocalizationError::Bundle("Localizer already initialized".into()))
         })?;
     }
-    LOCALIZER_IS_SET.with(|f| f.set(true));
+    FLUENT_IS_PARSED.store(true, Ordering::Release);
     Ok(())
 }
 
