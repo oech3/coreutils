@@ -108,9 +108,7 @@ impl Localizer {
 }
 
 // Cache localizer. FluentBundle is not Sync while FluentResource is Sync
-static PARSED_FLUENT: OnceLock<
-    std::sync::RwLock<std::collections::HashMap<String, &'static FluentResource>>,
-> = OnceLock::new();
+static PARSED_FLUENT: OnceLock<&'static FluentResource> = OnceLock::new();
 thread_local! {
     static LOCALIZER: OnceLock<Localizer> = const { OnceLock::new() };
 }
@@ -225,9 +223,7 @@ fn init_localization(
 
 /// Helper function to parse FluentResource from content string
 fn parse_fluent_resource(content: &str) -> Result<&'static FluentResource, LocalizationError> {
-    let cache =
-        PARSED_FLUENT.get_or_init(|| std::sync::RwLock::new(std::collections::HashMap::new()));
-    if let Some(res) = cache.read().unwrap().get(content) {
+    if let Some(res) = PARSED_FLUENT.get() {
         return Ok(res);
     }
 
@@ -251,11 +247,7 @@ fn parse_fluent_resource(content: &str) -> Result<&'static FluentResource, Local
     )?;
 
     let cached_res: &'static FluentResource = Box::leak(Box::new(resource));
-    cache
-        .write()
-        .unwrap()
-        .insert(content.to_string(), cached_res);
-    Ok(cached_res)
+    Ok(*PARSED_FLUENT.get_or_init(|| cached_res))
 }
 
 /// Create a bundle from embedded English locale files with common uucore strings
