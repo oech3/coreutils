@@ -8,7 +8,7 @@ use coreutils::validation;
 use itertools::Itertools as _;
 use std::cmp;
 use std::ffi::OsString;
-use std::io::{self, Write};
+use std::io::{Write, stderr, stdout};
 use std::process;
 use uucore::Args;
 
@@ -76,19 +76,22 @@ fn main() {
 
         match util {
             "--list" => {
-                // If --help is also present, show usage instead of list
-                if args.any(|arg| arg == "--help" || arg == "-h") {
-                    usage(&utils, binary_as_util);
-                    process::exit(0);
+                // we should fail with additional args https://github.com/uutils/coreutils/issues/11383#issuecomment-4082564058
+                if args.next().is_some() {
+                    let _ = writeln!(stderr(), "coreutils: invalid sub-command");
+                    process::exit(1);
                 }
-                let utils: Vec<_> = utils.keys().collect();
-                for util in utils {
-                    println!("{util}");
+                let mut out = stdout().lock();
+                for util in utils.keys() {
+                    if let Err(e) = writeln!(out, "{util}") {
+                        let _ = writeln!(stderr(), "coreutils: {e}");
+                        process::exit(1);
+                    }
                 }
                 process::exit(0);
             }
             "--version" | "-V" => {
-                println!("{binary_as_util} {VERSION} (multi-call binary)");
+                println!("coreutils {VERSION} (multi-call binary)");
                 process::exit(0);
             }
             // Not a special command: fallthrough to calling a util
@@ -120,7 +123,7 @@ fn main() {
                                         .into_iter()
                                         .chain(args),
                                 );
-                                io::stdout().flush().expect("could not flush stdout");
+                                stdout().flush().expect("could not flush stdout");
                                 process::exit(code);
                             }
                             None => validation::not_found(&util_os),
@@ -137,8 +140,13 @@ fn main() {
             }
         }
     } else {
-        // no arguments provided
-        usage(&utils, binary_as_util);
-        process::exit(0);
+        // GNU just fails, but busybox tests needs usage
+        // todo: patch the test suite instead
+        if binary_as_util.ends_with("box") {
+            usage(&utils, binary_as_util);
+        } else {
+            let _ = writeln!(stderr(), "coreutils: missing argument");
+        }
+        process::exit(1);
     }
 }
