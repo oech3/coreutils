@@ -13,8 +13,5 @@ tee-help-output-error-warn-nopipe = produce warnings for errors that are not pip
 tee-help-output-error-exit = exit on write errors to any output
 tee-help-output-error-exit-nopipe = exit on write errors to any output that are not pipe errors (equivalent to exit on non-unix platforms)
 
-# Error messages
-tee-error-stdin = stdin: { $error }
-
 # Other messages
 tee-standard-output = 'standard output'

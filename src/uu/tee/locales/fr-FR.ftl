@@ -13,8 +13,5 @@ tee-help-output-error-warn-nopipe = produire des avertissements pour les erreurs
 tee-help-output-error-exit = quitter en cas d'erreurs d'écriture vers toute sortie
 tee-help-output-error-exit-nopipe = quitter en cas d'erreurs d'écriture vers toute sortie qui ne sont pas des erreurs de tube (équivalent à exit sur les plateformes non-unix)
 
-# Messages d'erreur
-tee-error-stdin = stdin : { $error }
-
 # Autres messages
 tee-standard-output = 'sortie standard'

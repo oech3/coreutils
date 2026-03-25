@@ -9,7 +9,7 @@ use std::fs::OpenOptions;
 use std::io::{Error, ErrorKind, Read, Result, Write, stderr, stdin, stdout};
 use std::path::PathBuf;
 use uucore::display::Quotable;
-use uucore::error::UResult;
+use uucore::error::{UResult, strip_errno};
 use uucore::format_usage;
 use uucore::parser::shortcut_value_parser::ShortcutValueParser;
 use uucore::translate;
@@ -411,9 +411,9 @@ struct NamedReader {
 impl Read for NamedReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         match self.inner.read(buf) {
-            Err(f) => {
-                let _ = writeln!(stderr(), "{}", translate!("tee-error-stdin", "error" => f));
-                Err(f)
+            Err(e) => {
+                let _ = writeln!(stderr(), "tee: read error: {}", strip_errno(&e));
+                Err(e)
             }
             okay => okay,
         }
