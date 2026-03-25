@@ -8,9 +8,9 @@ use coreutils::validation;
 use itertools::Itertools as _;
 use std::cmp;
 use std::ffi::OsString;
-use std::io::{self, Write};
+use std::io::{ErrorKind::BrokenPipe, Write, stderr, stdout};
 use std::process;
-use uucore::Args;
+use uucore::{Args, error::strip_errno};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -41,10 +41,10 @@ Currently defined functions:
 
 {indent_list}"
     );
-    if let Err(e) = writeln!(io::stdout(), "{s}")
-        && e.kind() != io::ErrorKind::BrokenPipe
+    if let Err(e) = writeln!(stdout(), "{s}")
+        && e.kind() != BrokenPipe
     {
-        let _ = writeln!(io::stderr(), "coreutils: {e}");
+        let _ = writeln!(stderr(), "coreutils: {}", strip_errno(&e));
         process::exit(1);
     }
 }
@@ -90,22 +90,22 @@ fn main() {
                     usage(&utils, binary_as_util);
                     process::exit(0);
                 }
-                let mut out = io::stdout().lock();
+                let mut out = stdout().lock();
                 for util in utils.keys() {
                     if let Err(e) = writeln!(out, "{util}")
-                        && e.kind() != io::ErrorKind::BrokenPipe
+                        && e.kind() != BrokenPipe
                     {
-                        let _ = writeln!(io::stderr(), "coreutils: {e}");
+                        let _ = writeln!(stderr(), "coreutils: {}", strip_errno(&e));
                         process::exit(1);
                     }
                 }
                 process::exit(0);
             }
             "--version" | "-V" => {
-                if let Err(e) = writeln!(io::stdout(), "coreutils {VERSION} (multi-call binary)")
-                    && e.kind() != io::ErrorKind::BrokenPipe
+                if let Err(e) = writeln!(stdout(), "coreutils {VERSION} (multi-call binary)")
+                    && e.kind() != BrokenPipe
                 {
-                    let _ = writeln!(io::stderr(), "coreutils: {e}");
+                    let _ = writeln!(stderr(), "coreutils: {}", strip_errno(&e));
                     process::exit(1);
                 }
                 process::exit(0);
@@ -139,7 +139,7 @@ fn main() {
                                         .into_iter()
                                         .chain(args),
                                 );
-                                io::stdout().flush().expect("could not flush stdout");
+                                stdout().flush().expect("could not flush stdout");
                                 process::exit(code);
                             }
                             None => validation::not_found(&util_os),
