@@ -166,12 +166,42 @@ fn wrap_in_stdout_error(err: io::Error) -> io::Error {
     )
 }
 
-fn read_n_bytes(input: impl Read, n: u64) -> io::Result<u64> {
-    // Read the first `n` bytes from the `input` reader.
-    let mut reader = input.take(n);
-
-    // Write those bytes to `stdout`.
+fn read_n_bytes(input: impl Read + AsFd, n: u64) -> io::Result<u64> {
     let stdout = io::stdout();
+    let mut n = n;
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        use rustix::pipe::fcntl_setpipe_size;
+        use uucore::pipes::splice;
+        if let Ok(bytes_written) = splice(&input, &stdout, n as usize) {
+            let mut bytes_written = bytes_written as u64;
+            n -= bytes_written;
+            if n == 0 {
+                // avoid fcntl overhead for small input
+                return Ok(bytes_written);
+            };
+            // improves throughput
+            let pipe_size = uucore::pipes::MAX_ROOTLESS_PIPE_SIZE.min(n as usize);
+            let _ = fcntl_setpipe_size(&input, pipe_size);
+            let _ = fcntl_setpipe_size(&stdout, pipe_size);
+            loop {
+                match splice(&input, &stdout, n as usize) {
+                    Ok(0) => return Ok(bytes_written),
+                    Ok(s) => {
+                        n -= s as u64;
+                        bytes_written += s as u64;
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+        //} else {
+        //todo: both of in/output are not pipe. needs broker for fast-path
+        //}
+    }
+    // Read n bytes from the `input` reader.
+    let mut reader = input.take(n);
+    // Write those bytes to `stdout`.
     let mut stdout = stdout.lock();
 
     let bytes_written = io::copy(&mut reader, &mut stdout).map_err(wrap_in_stdout_error)?;
