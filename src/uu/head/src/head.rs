@@ -169,19 +169,21 @@ fn wrap_in_stdout_error(err: io::Error) -> io::Error {
 fn read_n_bytes(input: impl Read + AsFd, n: u64) -> io::Result<u64> {
     let stdout = io::stdout();
     let mut n = n;
+    let mut bytes_written: u64 = 0;
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
         use rustix::pipe::fcntl_setpipe_size;
         use uucore::pipes::splice;
-        if let Ok(bytes_written) = splice(&input, &stdout, n as usize) {
-            let mut bytes_written = bytes_written as u64;
+        let pipe_size = uucore::pipes::MAX_ROOTLESS_PIPE_SIZE.min(n as usize);
+        if let Ok(b) = splice(&input, &stdout, n as usize) {
+            bytes_written = b as u64;
             n -= bytes_written;
             if n == 0 {
                 // avoid fcntl overhead for small input
                 return Ok(bytes_written);
             };
             // improves throughput
-            let pipe_size = uucore::pipes::MAX_ROOTLESS_PIPE_SIZE.min(n as usize);
+
             let _ = fcntl_setpipe_size(&input, pipe_size);
             let _ = fcntl_setpipe_size(&stdout, pipe_size);
             loop {
@@ -194,10 +196,24 @@ fn read_n_bytes(input: impl Read + AsFd, n: u64) -> io::Result<u64> {
                     Err(_) => break,
                 }
             }
+        } else if let Ok((broker_r, broker_w)) = uucore::pipes::pipe_with_size(pipe_size) {
+            // both of in/output are not pipe. needs broker to use splice() with additional cost
+            loop {
+                match splice(&input, &broker_w, n as usize) {
+                    Ok(0) => return Ok(bytes_written),
+                    Ok(s) => {
+                        if uucore::pipes::splice_exact(&broker_r, &stdout, s).is_ok() {
+                            n -= s as u64;
+                            bytes_written += s as u64;
+                        } else {
+                            // output is /dev/full or something strange
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
         }
-        //} else {
-        //todo: both of in/output are not pipe. needs broker for fast-path
-        //}
     }
     // Read n bytes from the `input` reader.
     let mut reader = input.take(n);
