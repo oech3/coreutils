@@ -49,15 +49,38 @@ pub fn splice(source: &impl AsFd, target: &impl AsFd, len: usize) -> rustix::io:
 ///
 /// Exactly `len` bytes are moved from `source` into `target`.
 ///
-/// Panics if `source` runs out of data before `len` bytes have been moved.
+/// Hangs if `source` runs out of data before `len` bytes have been moved.
 #[inline]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn splice_exact(source: &impl AsFd, target: &impl AsFd, len: usize) -> std::io::Result<()> {
     let mut left = len;
     while left > 0 {
         let written = splice(source, target, left)?;
-        debug_assert_ne!(written, 0, "unexpected end of data");
+        debug_assert!(
+            written > 0,
+            "wrong size of content of input (hangs if input is pipe)"
+        );
         left -= written;
+    }
+    Ok(())
+}
+
+/// tee wrapper which fully finishes the write.
+///
+/// Exactly `len` bytes are moved from `source` into `target`.
+///
+/// Hangs if `source` runs out of data before `len` bytes have been moved.
+#[inline]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn tee_exact(source: &impl AsFd, target: &impl AsFd, len: usize) -> std::io::Result<()> {
+    let mut left = len;
+    while left > 0 {
+        let t = rustix::pipe::tee(source, target, len, SpliceFlags::empty())?;
+        debug_assert!(
+            t > 0,
+            "wrong size of content of input (hangs if input is pipe)"
+        );
+        left -= t;
     }
     Ok(())
 }

@@ -92,6 +92,13 @@ fn tee(options: &Options) -> Result<()> {
         return Ok(());
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        if output.tee_splice(&input).is_ok() {
+            return Ok(());
+        }
+    }
+
     // We cannot use std::io::copy here as it doesn't flush the output buffer
     let res = match copy(input, &mut output) {
         // ErrorKind::Other is raised by MultiWriter when all writers
@@ -119,8 +126,12 @@ fn copy(mut input: impl Read, mut output: impl Write) -> Result<()> {
     // Use buffer size from std implementation
     // https://github.com/rust-lang/rust/blob/2feb91181882e525e698c4543063f4d0296fcf91/library/std/src/sys/io/mod.rs#L44
     const BUF_SIZE: usize = 8 * 1024;
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    //avoid unnecessary allocation for fast-path
     let mut buffer = [0u8; BUF_SIZE];
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    //avoid unnecessary allocation for fast-path
     for _ in 0..2 {
         match input.read(&mut buffer) {
             Ok(0) => return Ok(()), // end of file
@@ -189,6 +200,60 @@ struct MultiWriter {
 }
 
 impl MultiWriter {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn tee_splice(&mut self, input: &NamedReader) -> Result<()> {
+        use ::rustix::fd::AsFd;
+        use uucore::pipes::{MAX_ROOTLESS_PIPE_SIZE, pipe, splice, splice_exact};
+        let (p_r, p_w) = pipe()?; // force-splice() even stdin is not pipe
+        let (p2_r, p2_w) = pipe()?; // force-tee() even output is not pipe
+        let input = input.inner.as_fd();
+        // improve throughput
+        let _ = rustix::pipe::fcntl_setpipe_size(
+            &self.writers[0].inner.as_fd(),
+            MAX_ROOTLESS_PIPE_SIZE,
+        );
+        loop {
+            match splice(&input, &p_w, MAX_ROOTLESS_PIPE_SIZE) {
+                Ok(0) => break Ok(()),
+                Err(e) => break Err(e.into()),
+                Ok(s) => {
+                    let w_len = self.writers.len();
+                    // len - 1 outputs do not consume input
+                    for other in &mut self.writers[..w_len - 1] {
+                        // cannot retain_mut... clear name if failed to write instead
+                        uucore::pipes::tee_exact(&p_r, &p2_w, s)
+                            .expect("copy between internal pipes failed");
+                        let fd = other.inner.as_fd();
+                        if splice_exact(&p2_r, &fd, s).is_err() {
+                            // cleanup before fallback
+                            let mut reader = (&p2_r).take(s as u64);
+                            let _ = std::io::copy(&mut reader, &mut other.inner).inspect_err(|e| {
+                                let _ = writeln!(stderr(), "{}: {e}", other.name.maybe_quote());
+                                uucore::error::set_exit_code(1);
+                                other.name.clear();
+                            });
+                        }
+                    }
+                    // last one consumes input
+                    if let Some(last) = self.writers.last_mut() {
+                        if splice_exact(&p_r, &last.inner.as_fd(), s).is_err() {
+                            // cleanup before fallback
+                            let mut reader = (&p_r).take(s as u64);
+                            let _ = std::io::copy(&mut reader, &mut last.inner).inspect_err(|e| {
+                                let _ = writeln!(stderr(), "{}: {e}", last.name.maybe_quote());
+                                uucore::error::set_exit_code(1);
+                                last.name.clear();
+                            });
+                        }
+                    }
+                    self.writers.retain(|w| !w.name.is_empty());
+                    if self.writers.is_empty() {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
     fn new(writers: Vec<NamedWriter>, output_error_mode: Option<OutputErrorMode>) -> Self {
         Self {
             writers,
@@ -309,6 +374,16 @@ impl Write for Writer {
 struct NamedWriter {
     inner: Writer,
     pub name: OsString,
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+impl rustix::fd::AsFd for Writer {
+    fn as_fd(&self) -> rustix::fd::BorrowedFd<'_> {
+        match self {
+            Self::File(f) => f.as_fd(),
+            Self::Stdout(s) => s.as_fd(),
+        }
+    }
 }
 
 impl Write for NamedWriter {
