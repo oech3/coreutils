@@ -277,11 +277,7 @@ impl Write for MultiWriter {
                 .is_ok()
         });
         self.ignored_errors += errors;
-        if let Some(e) = aborted {
-            Err(e)
-        } else {
-            Ok(())
-        }
+        aborted.map_or(Ok(()), Err)
     }
 }
 
@@ -327,16 +323,12 @@ struct NamedReader {
 
 impl Read for NamedReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        match self.inner.read(buf) {
-            Err(f) => {
-                let _ = writeln!(
-                    stderr(),
-                    "tee: {}",
-                    translate!("tee-error-stdin", "error" => strip_errno(&f))
-                );
-                Err(f)
-            }
-            okay => okay,
-        }
+        self.inner.read(buf).inspect_err(|e| {
+            let _ = writeln!(
+                stderr(),
+                "tee: {}",
+                translate!("tee-error-stdin", "error" => strip_errno(e))
+            );
+        })
     }
 }
