@@ -367,6 +367,7 @@ getcwd
 setpipe
 
 # * other
+auxv
 getlimits
 weblate
 algs
