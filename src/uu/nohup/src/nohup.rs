@@ -35,6 +35,7 @@ mod options {
 
 #[derive(Debug, Error)]
 enum NohupError {
+    #[cfg(target_vendor = "apple")]
     #[error("{}", translate!("nohup-error-cannot-detach"))]
     CannotDetach,
 
@@ -50,6 +51,7 @@ enum NohupError {
 
 impl UError for NohupError {
     fn code(&self) -> i32 {
+        #[allow(clippy::match_wildcard_for_single_variants)]
         match self {
             Self::OpenFailed(code, _) | Self::OpenFailed2(code, _, _, _) => *code,
             _ => 2,
@@ -77,6 +79,7 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
 
     unsafe { libc::signal(libc::SIGHUP, libc::SIG_IGN) };
 
+    #[cfg(target_vendor = "apple")]
     if unsafe { !_vprocmgr_detach_from_console(0).is_null() } {
         return Err(NohupError::CannotDetach.into());
     }
@@ -175,11 +178,4 @@ fn find_stdout() -> UResult<File> {
 #[cfg(target_vendor = "apple")]
 unsafe extern "C" {
     fn _vprocmgr_detach_from_console(flags: u32) -> *const libc::c_int;
-}
-
-#[cfg(not(target_vendor = "apple"))]
-/// # Safety
-/// This function is unsafe because it dereferences a raw pointer.
-unsafe fn _vprocmgr_detach_from_console(_: u32) -> *const libc::c_int {
-    std::ptr::null()
 }
