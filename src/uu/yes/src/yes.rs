@@ -128,11 +128,12 @@ pub fn exec(bytes: &[u8], aligned: bool) -> io::Result<()> {
             && rustix::pipe::fcntl_setpipe_size(&stdout, MAX_ROOTLESS_PIPE_SIZE).is_ok()
             && p_write.write_all(bytes).is_ok()
     {
-        if aligned && tee(&p_read, &stdout, PAGE_SIZE).is_ok() {
-            while let Ok(1..) = tee(&p_read, &stdout, usize::MAX) {}
+        if aligned && tee(&p_read, &stdout, MAX_ROOTLESS_PIPE_SIZE).is_ok() {
+            while let Ok(1..) = tee(&p_read, &stdout, MAX_ROOTLESS_PIPE_SIZE) {}
         } else if let Ok((broker_read, broker_write)) = pipe() {
             // tee() cannot control offset and write to non-pipe
-            'hybrid: while let Ok(mut remain) = tee(&p_read, &broker_write, usize::MAX) {
+            'hybrid: while let Ok(mut remain) = tee(&p_read, &broker_write, MAX_ROOTLESS_PIPE_SIZE)
+            {
                 debug_assert!(remain == bytes.len(), "splice() should cleanup pipe");
                 while remain > 0 {
                     if let Ok(s) = splice(&broker_read, &stdout, remain) {
