@@ -56,19 +56,14 @@ fn pipe_with_size(s: usize) -> std::io::Result<(File, File)> {
 ///
 /// At least one of `source` and `target` must be some sort of pipe.
 /// To get around this requirement, consider splicing from your source into
-/// a [`pipe`] and then from the pipe into your target (with `splice_exact`):
-/// this is still very efficient.
+/// a [`pipe`] and then from the pipe into your target.
 #[inline]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn splice(source: &impl AsFd, target: &impl AsFd, len: usize) -> rustix::io::Result<usize> {
     rustix::pipe::splice(source, None, target, None, len, SpliceFlags::empty())
 }
 
-/// Splice wrapper which fully finishes the write.
-///
-/// Exactly `len` bytes are moved from `source` into `target`.
-///
-/// Panics if `source` runs out of data before `len` bytes have been moved.
+/// DEPRECATED. Using this would cause broken fallback
 #[inline]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn splice_exact(source: &impl AsFd, target: &impl AsFd, len: usize) -> std::io::Result<()> {
@@ -138,18 +133,22 @@ where
     loop {
         match splice(&source, &pipe_wr, MAX_ROOTLESS_PIPE_SIZE) {
             Ok(0) => return Ok(false),
-            Ok(n) => {
-                if splice_exact(&pipe_rd, dest, n).is_err() {
-                    // If the first splice manages to copy to the intermediate
-                    // pipe, but the second splice to stdout fails for some reason
-                    // we can recover by copying the data that we have from the
-                    // intermediate pipe to stdout using unbuffered read/write. Then
-                    // we tell the caller to fall back.
-                    debug_assert!(n <= MAX_ROOTLESS_PIPE_SIZE, "unexpected RAM usage");
-                    let mut drain = Vec::with_capacity(n);
-                    pipe_rd.take(n as u64).read_to_end(&mut drain)?;
-                    crate::io::RawWriter(&dest).write_all(&drain)?;
-                    return Ok(true);
+            Ok(mut remain) => {
+                while remain > 0 {
+                    if let Ok(s) = splice(&pipe_rd, dest, remain) {
+                        remain -= s;
+                    } else {
+                        // If the 1st splice manages to copy to the intermediate
+                        // pipe, but the n-th splice to dest failed for some reason
+                        // we can recover by copying the data that we have from the
+                        // intermediate pipe to dest using unbuffered read/write. Then
+                        // we tell the caller to fall back.
+                        debug_assert!(remain <= MAX_ROOTLESS_PIPE_SIZE, "unexpected RAM usage");
+                        let mut drain = Vec::with_capacity(remain);
+                        pipe_rd.take(remain as u64).read_to_end(&mut drain)?;
+                        crate::io::RawWriter(&dest).write_all(&drain)?;
+                        return Ok(true);
+                    }
                 }
             }
             Err(_) => return Ok(true),
@@ -204,7 +203,7 @@ pub fn send_n_bytes(
         loop {
             match splice(&input, &broker_w, n as usize) {
                 Ok(0) => break might_fuse(&input),
-                Ok(s @ 1..) => {
+                Ok(s) => {
                     if splice_exact(&broker_r, &target, s).is_ok() {
                         n -= s as u64;
                         bytes_written += s as u64;
