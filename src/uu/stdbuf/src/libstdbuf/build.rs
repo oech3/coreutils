@@ -4,13 +4,16 @@
 // file that was distributed with this source code.
 // spell-checker:ignore (ToDO) libstdbuf
 
-use std::env;
+// people can try to use Windows stdbuf for binaries built for cygwin using cygwin libstdbuf
+#[cfg(not(unix))]
+fn main() {}
 
+#[cfg(unix)]
 fn main() {
     // Make sure we're building position-independent code for use with LD_PRELOAD
     println!("cargo:rustc-link-arg=-fPIC");
 
-    let target = env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
+    let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
     // Ensure the library doesn't have any undefined symbols (-z flag not supported on macOS and Cygwin)
     if !target.contains("apple-darwin") && !target.contains("cygwin") {
         println!("cargo:rustc-link-arg=-z");

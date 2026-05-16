@@ -4,12 +4,18 @@
 // file that was distributed with this source code.
 // spell-checker:ignore (ToDO) bindeps dylib libstdbuf deps liblibstdbuf
 
-use std::env;
-use std::fs;
-use std::path::Path;
-use std::process::Command;
-
+// people can try to use Windows stdbuf for binaries built for cygwin using cygwin libstdbuf
+#[cfg(not(unix))]
 fn main() {
+    println!("cargo:rustc-cfg=feature=\"feat_external_libstdbuf\"");
+}
+
+#[cfg(unix)]
+fn main() {
+    use std::env;
+    use std::fs;
+    use std::path::Path;
+    use std::process::Command;
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/libstdbuf/src/libstdbuf.rs");
 
