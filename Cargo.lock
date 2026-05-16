@@ -3485,6 +3485,7 @@ name = "uu_echo"
 version = "0.8.0"
 dependencies = [
  "clap",
+ "codspeed-divan-compat",
  "fluent",
  "uucore",
 ]
