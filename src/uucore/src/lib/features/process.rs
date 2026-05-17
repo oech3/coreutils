@@ -7,11 +7,11 @@
 // spell-checker:ignore (sys/unix) WIFSIGNALED ESRCH
 // spell-checker:ignore pgrep pwait snice getpgrp
 
-use libc::{gid_t, pid_t, uid_t};
 #[cfg(not(target_os = "redox"))]
 use nix::errno::Errno;
 use nix::sys::signal::{self as nix_signal, SigHandler, Signal};
 use nix::unistd::Pid;
+use rustix::process::{RawGid, RawPid, RawUid};
 use std::io;
 use std::process::Child;
 use std::process::ExitStatus;
@@ -20,35 +20,34 @@ use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// `geteuid()` returns the effective user ID of the calling process.
-pub fn geteuid() -> uid_t {
-    nix::unistd::geteuid().as_raw()
+/// return the effective user ID of the calling process
+pub fn geteuid() -> RawUid {
+    rustix::process::geteuid().as_raw()
 }
 
-/// `getpgrp()` returns the process group ID of the calling process.
-/// It is a trivial wrapper over nix::unistd::getpgrp.
-pub fn getpgrp() -> pid_t {
-    nix::unistd::getpgrp().as_raw()
+/// return the process group ID of the calling process
+pub fn getpgrp() -> RawPid {
+    rustix::process::getpgrp().as_raw_pid()
 }
 
-/// `getegid()` returns the effective group ID of the calling process.
-pub fn getegid() -> gid_t {
-    nix::unistd::getegid().as_raw()
+/// return the effective group ID of the calling process
+pub fn getegid() -> RawGid {
+    rustix::process::getegid().as_raw()
 }
 
-/// `getgid()` returns the real group ID of the calling process.
-pub fn getgid() -> gid_t {
-    nix::unistd::getgid().as_raw()
+/// return the real group ID of the calling process
+pub fn getgid() -> RawGid {
+    rustix::process::getgid().as_raw()
 }
 
-/// `getuid()` returns the real user ID of the calling process.
-pub fn getuid() -> uid_t {
+/// return the real user ID of the calling process
+pub fn getuid() -> RawUid {
     rustix::process::getuid().as_raw()
 }
 
-/// `getpid()` returns the pid of the calling process.
-pub fn getpid() -> pid_t {
-    nix::unistd::getpid().as_raw()
+/// return the pid of the calling process
+pub fn getpid() -> RawPid {
+    rustix::process::getpid().as_raw_pid()
 }
 
 /// `getsid()` returns the session ID of the process with process ID pid.
@@ -66,7 +65,7 @@ pub fn getpid() -> pid_t {
 /// This function only support standard POSIX implementation platform,
 /// so some system such as redox doesn't supported.
 #[cfg(not(target_os = "redox"))]
-pub fn getsid(pid: i32) -> Result<pid_t, Errno> {
+pub fn getsid(pid: i32) -> Result<RawPid, Errno> {
     let pid = if pid == 0 {
         None
     } else {
@@ -97,7 +96,7 @@ pub trait ChildExt {
 
 impl ChildExt for Child {
     fn send_signal(&mut self, signal: usize) -> io::Result<()> {
-        let pid = Pid::from_raw(self.id() as pid_t);
+        let pid = Pid::from_raw(self.id() as RawPid);
         let result = if signal == 0 {
             nix_signal::kill(pid, None)
         } else {
