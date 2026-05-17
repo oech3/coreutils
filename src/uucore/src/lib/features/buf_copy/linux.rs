@@ -49,11 +49,6 @@ where
     // If the splice() call failed, fall back on slower writing.
     std::io::copy(src, dest)?;
 
-    // If the splice() call failed and there has been some data written to
-    // stdout via while loop above AND there will be second splice() call
-    // that will succeed, data pushed through splice will be output before
-    // the data buffered in stdout.lock. Therefore additional explicit flush
-    // is required here.
-    dest.flush()?;
-    Ok(())
+    // catch I/O error for buffered data
+    Ok(dest.flush()?)
 }

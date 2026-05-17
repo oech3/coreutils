@@ -23,5 +23,6 @@ where
     S: Write,
 {
     std::io::copy(src, dest)?;
-    Ok(())
+    // catch I/O error for buffered data
+    Ok(dest.flush()?)
 }
