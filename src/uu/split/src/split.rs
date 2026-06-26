@@ -11,6 +11,10 @@ mod number;
 mod platform;
 mod strategy;
 
+use rustix::fd::{AsFd, BorrowedFd};
+pub trait FdReadable: Read + AsFd {}
+impl<T: Read + AsFd> FdReadable for T {}
+
 use crate::cli::ARG_INPUT;
 use crate::cli::ARG_PREFIX;
 use crate::cli::options;
@@ -547,6 +551,13 @@ impl<'a> ByteChunkWriter<'a> {
             inner,
             filename_iterator,
         })
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+impl AsFd for ByteChunkWriter<'_> {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.inner.as_fd()
     }
 }
 
@@ -1318,47 +1329,58 @@ fn line_bytes(settings: &Settings, reader: &mut impl BufRead, chunk_size: usize)
 
 #[allow(clippy::cognitive_complexity)]
 fn split(settings: &Settings) -> UResult<()> {
-    let r_box = if settings.input == "-" {
-        Box::new(stdin()) as Box<dyn Read>
+    let mut r_box = if settings.input == "-" {
+        Box::new(stdin()) as Box<dyn FdReadable>
     } else {
         let r = File::open(Path::new(&settings.input)).map_err_context(
             || translate!("split-error-cannot-open-for-reading", "file" => settings.input.quote()),
         )?;
         #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
         let _ = rustix::fs::fadvise(&r, 0, None, rustix::fs::Advice::Sequential);
-        Box::new(r) as Box<dyn Read>
+        Box::new(r) as Box<dyn FdReadable>
     };
     let io_blksize: usize = settings.io_blksize.unwrap_or(8 * 1024).try_into().unwrap();
-    let mut reader = BufReader::with_capacity(io_blksize, r_box);
 
     match settings.strategy {
         Strategy::Number(NumberType::Bytes(num_chunks)) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
             n_chunks_by_byte(settings, &mut reader, num_chunks, None)
         }
         Strategy::Number(NumberType::KthBytes(chunk_number, num_chunks)) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
             n_chunks_by_byte(settings, &mut reader, num_chunks, Some(chunk_number))
         }
         Strategy::Number(NumberType::Lines(num_chunks)) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
             n_chunks_by_line(settings, &mut reader, num_chunks, None)
         }
         Strategy::Number(NumberType::KthLines(chunk_number, num_chunks)) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
             n_chunks_by_line(settings, &mut reader, num_chunks, Some(chunk_number))
         }
         Strategy::Number(NumberType::RoundRobin(num_chunks)) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
             n_chunks_by_line_round_robin(settings, &mut reader, num_chunks, None)
         }
         Strategy::Number(NumberType::KthRoundRobin(chunk_number, num_chunks)) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
             n_chunks_by_line_round_robin(settings, &mut reader, num_chunks, Some(chunk_number))
         }
         Strategy::Lines(chunk_size) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
             let mut writer = LineChunkWriter::new(chunk_size, settings)?;
             copy(&mut reader, &mut writer)
         }
         Strategy::Bytes(chunk_size) => {
+            // needs .as_fd for fast-path
             let mut writer = ByteChunkWriter::new(chunk_size, settings)?;
-            copy(&mut reader, &mut writer)
+            writer.as_fd();
+            copy(&mut r_box, &mut writer)
         }
-        Strategy::LineBytes(chunk_size) => line_bytes(settings, &mut reader, chunk_size as usize),
+        Strategy::LineBytes(chunk_size) => {
+            let mut reader = BufReader::with_capacity(io_blksize, r_box);
+            line_bytes(settings, &mut reader, chunk_size as usize)
+        }
     }
 }
 

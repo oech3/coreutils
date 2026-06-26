@@ -56,7 +56,6 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 
-// todo: add .as_fd for std::io::copy's specialization for --bytes
 pub enum Writer {
     File(std::fs::File),
     #[cfg(unix)]
@@ -77,6 +76,16 @@ impl std::io::Write for Writer {
             Self::File(w) => w.flush(),
             #[cfg(unix)]
             Self::Filter(w) => w.flush(),
+        }
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+impl rustix::fd::AsFd for Writer {
+    fn as_fd(&self) -> rustix::fd::BorrowedFd<'_> {
+        match self {
+            Writer::File(w) => w.as_fd(),
+            Writer::Filter(_) => panic!(),
         }
     }
 }
