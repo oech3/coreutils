@@ -190,13 +190,10 @@ impl FromStr for FormatOptions {
         }
 
         if !padding.is_empty() {
-            if let Ok(p) = padding.parse() {
-                options.padding = Some(p);
-            } else {
-                return Err(
-                    translate!("numfmt-error-invalid-format-width-overflow", "format" => s),
-                );
-            }
+            let p = padding.parse().map_err(
+                |_| translate!("numfmt-error-invalid-format-width-overflow", "format" => s),
+            )?;
+            options.padding = Some(p);
         }
 
         if let Some('.') = iter.peek() {
@@ -217,10 +214,11 @@ impl FromStr for FormatOptions {
 
             if precision.is_empty() {
                 options.precision = Some(0);
-            } else if let Ok(p) = precision.parse() {
-                options.precision = Some(p);
             } else {
-                return Err(translate!("numfmt-error-invalid-precision", "format" => s));
+                let p = precision
+                    .parse()
+                    .map_err(|_| translate!("numfmt-error-invalid-precision", "format" => s))?;
+                options.precision = Some(p);
             }
         }
 

@@ -104,16 +104,11 @@ fn tabstops_parse(s: &str) -> Result<(RemainingMode, Vec<usize>), ParseError> {
                     // Parse a number from the byte sequence.
                     let s = from_utf8(&bytes[i..]).unwrap();
                     match s.parse::<usize>() {
+                        // Tab size must be positive.
+                        Ok(0) => return Err(ParseError::TabSizeCannotBeZero),
                         Ok(num) => {
-                            // Tab size must be positive.
-                            if num == 0 {
-                                return Err(ParseError::TabSizeCannotBeZero);
-                            }
-
                             // Tab sizes must be ascending.
-                            if let Some(last_stop) = nums.last()
-                                && *last_stop >= num
-                            {
+                            if nums.last().is_some_and(|last| *last >= num) {
                                 return Err(ParseError::TabSizesMustBeAscending);
                             }
 
