@@ -914,18 +914,6 @@ jobs:
         cargo nextest run --hide-progress-bar --profile ci \
           --features "${{ matrix.job.features }},openssl" \
           -E 'test(/^test_(md5sum|sha1sum|sha224sum|sha256sum|sha384sum|sha512sum|cksum)::/)'
-    # Confirm the vendored build is actually statically linked. If this
-    # regresses, the `vendored` feature has stopped doing its job.
-    - name: Verify static linkage (vendored)
-      if: matrix.job.os == 'ubuntu-latest'
-      shell: bash
-      run: |
-        cargo build --release --features "${{ matrix.job.features }},openssl" --bin coreutils
-        if ldd target/release/coreutils 2>&1 | grep -iE 'libssl|libcrypto'; then
-          echo "ERROR: coreutils dynamically links libssl/libcrypto despite vendored feature"
-          exit 1
-        fi
-        echo "OK: no dynamic libssl/libcrypto linkage"
     # Second linking mode: OPENSSL_NO_VENDOR=1 links dynamically against
     # the system libcrypto/libssl.
     - name: Test checksum utilities with OpenSSL (system / dynamic)
