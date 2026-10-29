@@ -160,14 +160,28 @@ impl MultiWriter {
         let input = rustix::stdio::stdin();
         #[cfg(not(any(unix, target_os = "wasi")))]
         let mut input = io::stdin();
+        // use trivial splice for one writer.
+        if let [writer] = &mut self.writers[..] {
+            match uucore::pipes::splice_unbounded_auto(&input, writer) {
+                Ok(Ok(())) => return Ok(()),
+                Ok(Err(())) => {} // no splice support
+                Err(e) => {
+                    return process_error(
+                        self.output_error_mode,
+                        e.into(),
+                        writer,
+                        &mut self.ignored_errors,
+                    )
+                    .map_err(|_| ());
+                }
+            }
         // needs 2 pipes to duplicate input multiple times
-        // freeze by max size since system allocates pipe smaller than default size when user has pages more than fs.pipe-user-pages-soft
-        #[cfg(any(target_os = "linux", target_os = "android"))]
-        if let Ok((mut pipe_read, mut pipe_write)) = uucore::pipes::pipe::<true>()
+        // freeze by max size since they can be generated under different fs.pipe-user-pages-soft
+        } else if let Ok((mut pipe_read, mut pipe_write)) = uucore::pipes::pipe::<true>()
             && let Ok((mut pipe2_read, mut pipe2_write)) = uucore::pipes::pipe::<true>()
         {
             use uucore::pipes::MAX_ROOTLESS_PIPE_SIZE;
-            // improve throughput when stdout is pipe, but no needed to be same size with broker.
+            // improve throughput when stdout is pipe. Failing it does not block splice.
             let _ = rustix::pipe::fcntl_setpipe_size(&self.writers[0], MAX_ROOTLESS_PIPE_SIZE);
             macro_rules! splice_or_detach {
                 ($pipe_read:ident, $pipe_write:ident, $writer:expr, $len:expr) => {
@@ -193,7 +207,11 @@ impl MultiWriter {
                     }
                 };
             }
-            while let Ok(s) = uucore::pipes::splice(&input, &pipe_write, MAX_ROOTLESS_PIPE_SIZE) {
+            // memfd is not be reused if writers contains a pipe and pages can be referenced to there.
+            // Don't post-sealing the memfd since has an overhead of syscall and is already private.
+            while let Ok(memfd) = uucore::pipes::memfd_sized()
+                && let Ok(s) = uucore::pipes::splice(&input, &pipe_write, MAX_ROOTLESS_PIPE_SIZE)
+            {
                 if s == 0 {
                     return Ok(());
                 }
@@ -201,6 +219,14 @@ impl MultiWriter {
                     // all writers exited
                     return Ok(());
                 };
+                // Own pages for the case input's page caches were changed during copy.
+                uucore::pipes::own_pages_with(
+                    &pipe_read,
+                    &pipe_write,
+                    &memfd,
+                    MAX_ROOTLESS_PIPE_SIZE,
+                )
+                .expect("private fds should have enough spare");
                 for other in others {
                     // do not consume input
                     let tee_res = uucore::pipes::tee(&pipe_read, &pipe2_write, s);

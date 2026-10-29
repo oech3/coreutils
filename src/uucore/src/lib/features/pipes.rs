@@ -236,3 +236,45 @@ pub fn dev_null() -> Option<std::fs::File> {
 pub fn tee(source: &impl AsFd, target: &impl AsFd, len: usize) -> rustix::io::Result<usize> {
     rustix::pipe::tee(source, target, len, SpliceFlags::empty())
 }
+
+// return memfd with `MAX_ROOTLESS_PIPE_SIZE`
+pub fn memfd_sized() -> rustix::io::Result<rustix::fd::OwnedFd> {
+    use rustix::fs;
+    let fd = fs::memfd_create("", fs::MemfdFlags::empty())?;
+    //fs::fallocate(
+    //    &fd,
+    //    fs::FallocateFlags::empty(),
+    //    0,
+    //    MAX_ROOTLESS_PIPE_SIZE as u64,
+    //)?;
+    Ok(fd)
+}
+
+// own pipe's page caches by our process using memfd
+pub fn own_pages_with(
+    reader: &PipeReader,
+    writer: &PipeWriter,
+    memfd: &rustix::fd::OwnedFd,
+    len: usize,
+) -> rustix::io::Result<()> {
+    let mut remaining = len;
+    while remaining > 0 {
+        // This is not a zero-copy i.e. pages are copied.
+        remaining -= splice(&reader, &memfd, remaining)?;
+    }
+    remaining = len;
+    let mut offset = 0;
+    while remaining > 0 {
+        remaining -= rustix::pipe::splice(
+            &memfd,
+            Some(&mut offset),
+            &writer,
+            None,
+            remaining,
+            SpliceFlags::empty(),
+        )?;
+    }
+    #[cfg(debug_assertions)] // // since it has an overhead of syscall and memfd already private.
+    fs::fcntl_add_seals(&memfd, fs::SealFlags::SHRINK);
+    Ok(())
+}
