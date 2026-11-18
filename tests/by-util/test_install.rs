@@ -916,6 +916,7 @@ fn test_install_and_strip_with_program() {
 
 #[cfg(all(unix, feature = "chmod"))]
 #[test]
+#[cfg_attr(target_os = "android", ignore = "failed with cross build on adb")]
 fn test_install_and_strip_with_program_hyphen() {
     let scene = TestScenario::new(util_name!());
 
